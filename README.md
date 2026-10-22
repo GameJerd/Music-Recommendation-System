@@ -22,5 +22,7 @@ Download the Kaggle dataset [vatsalmavani/spotify-dataset](https://www.kaggle.co
 | --- | --- |
 | Audit dataset | `python scripts/audit_dataset.py` |
 | Build content features + track DB | `python scripts/build_features.py` |
+| Simulate users (seeded; writes `data/synthetic/` + `manifest.json`) | `python scripts/simulate_users.py` |
+| Train CF, check it beats popularity, save serving model | `python scripts/train_cf.py` |
 | Run the API (then open http://127.0.0.1:8000/docs) | `uvicorn recsys.api.main:app --port 8000` |
 | Tests | `pytest -q` |
