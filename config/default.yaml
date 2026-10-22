@@ -3,56 +3,24 @@ scale:
 
 paths:
   raw: data/raw
-  synthetic: data/synthetic
   content: artifacts/content
-  cf: artifacts/cf
-  db: data/recsys.db          # holds tracks and (from Phase 3) logged events, so not under artifacts/
+  db: data/recsys.db          # tracks and logged events, so not under artifacts/
+  reports: reports
 
 features:
-  # starting values; tuned on validation in Phase 4. Zero drops a block (used for ablations).
+  # Zero drops a block (used for ablations). Not tuned: there is no user signal to tune on (decisions.md).
   block_weights:
     audio: 0.5
     genre: 0.35
     decade: 0.15
 
-simulation:                   # scripts/simulate_users.py; see recsys/data/simulate.py for the model
-  n_users: 10000
-  visible_share: 0.5          # share of taste the content model can see
-  bucket_shares: [0.20, 0.30, 0.35, 0.15]   # users with 1-4, 5-19, 20-99, 100+ plays
-  tail_shape: 2.0             # 100+ bucket: 100 * (1 + Lomax(2.0)), mean ~200 plays
-  max_plays: 2000
-  two_persona_share: 0.4
-  favourite_artists: 5
-  decade_bonus: 1.0           # in z units of the persona's audio match
-  artist_bonus: 1.5
-  hidden_dims: 8
-  user_noise: 0.3             # personal tilt on standardised audio features
-  hidden_user_noise: 1.0      # personal hidden taste vs the persona's hidden centre
-  beta_affinity: 5.0          # softmax sharpness on affinity; 2.5 spread each user over ~36k tracks (decisions.md)
-  beta_popularity: 2.5        # weight of the z-scored log popularity prior
-  session_length: 8           # mean plays per listening session
-  like_max: 0.4
-  like_threshold: 1.0
-  skip_exposure_rate: 0.2     # popularity-driven exposures per play, which may become skips
-  start: "2026-07-01"
-  days: 90
-
-cf:
-  factors: 64
-  regularization: 0.05
-  iterations: 15
-  alpha: 10                   # c_ui = 1 + alpha * r_ui
-  event_weights: {play: 1.0, like: 2.0}   # r_ui; skips are logged but unused in v1
-  knn_neighbours: 100         # item-item KNN baseline
+recommend:
+  candidates: 200             # nearest neighbours fetched before re-ranking, dedupe and the artist cap
+  artist_cap: 2               # max tracks per primary artist in one list; 0 = no cap
+  popularity_boost: 0.0       # score = cosine + boost * popularity/100; 0 = pure similarity
 
 eval:
   k: 10
-  cold_item_share: 0.02       # share of interacted tracks held out entirely (cold-item test)
-
-blend:
-  w_max: 0.75
-  k: 7.5          # must equal 5 * (w_max / 0.3 - 1) to keep the 70/30 anchor at 5 plays
-  candidates: 200             # per engine, pooled before blending
-  similar_cf_weight: 0.3      # /recommend/similar: share of item-item CF when the seed has a CF vector
+  n_seeds: 2000               # random seed tracks per variant in scripts/evaluate.py
 
 seed: 42

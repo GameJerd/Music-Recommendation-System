@@ -1,8 +1,10 @@
-# Hybrid music recommender
+# Content-based music recommender
 
-Content-based + collaborative-filtering music recommender with a FastAPI backend. Spec: [docs/PRD.md](docs/PRD.md). Decisions: [docs/decisions.md](docs/decisions.md).
+Recommends songs from the Kaggle Spotify 1921–2020 dataset (170,653 tracks) by how similar they are: audio features, artist genres and release decade. It's served by a FastAPI backend with interactive docs.
 
-> **The user data is simulated.** No real listening data exists for this catalog, so collaborative filtering trains on users we generate (`scripts/simulate_users.py`). Results show whether the pipeline recovers the taste structure we built in. They don't measure accuracy on real listeners.
+Original spec: [docs/PRD.md](docs/PRD.md). It described a hybrid with collaborative filtering; see the scope note at its top. Decisions and measured results: [docs/decisions.md](docs/decisions.md).
+
+> **No user data.** There's no real listening data for this catalog, so the system is content-based only. It works from the first request without any users. Personal recommendations come from songs a user plays, likes or picks through the API. Quality is reported as list-quality proxies (genre/era match, artist variety, popularity, coverage), not as accuracy on real listeners. The earlier hybrid version, which trained on simulated users, is preserved at git tag `hybrid-v1`.
 
 ## Setup
 
@@ -18,22 +20,37 @@ Download the Kaggle dataset [vatsalmavani/spotify-dataset](https://www.kaggle.co
 
 ## Commands
 
-| Step | Command |
-| --- | --- |
-| Audit dataset | `python scripts/audit_dataset.py` |
-| Build content features + track DB | `python scripts/build_features.py` |
-| Simulate users (seeded; writes `data/synthetic/` + `manifest.json`) | `python scripts/simulate_users.py` |
-| Train CF, check it beats popularity, save serving model | `python scripts/train_cf.py` |
-| Run the API (then open http://127.0.0.1:8000/docs) | `uvicorn recsys.api.main:app --port 8000` |
-| Retrain including events logged via the API, then hot-reload | `python scripts/train_cf.py --include-live` then `POST /admin/reload` |
-| Tests | `pytest -q` |
+| Step | Command | Time |
+| --- | --- | --- |
+| Audit the dataset (Gate 1: unique ids, expected columns) | `python scripts/audit_dataset.py` | ~5 s |
+| Build content features and the track database | `python scripts/build_features.py` | ~10 s |
+| Evaluate: proxies and ablations, written to `reports/content_eval.md` | `python scripts/evaluate.py` | ~1 min |
+| Run the API (then open http://127.0.0.1:8000/docs) | `uvicorn recsys.api.main:app --port 8000` | |
+| Tests | `pytest -q` | ~2 s |
+
+Settings are in [config/default.yaml](config/default.yaml): block weights, artist cap, popularity boost and paths. After rebuilding features, `POST /admin/reload` picks them up without restarting the API.
 
 ## API
 
 Open `/docs` for the live, typed contract. Main calls:
 
-- `GET /tracks/search?q=queen`: find a `track_id`.
-- `GET /recommend/similar/{track_id}?k=10`: similar songs (content, with item-item CF blended in when the seed has plays).
-- `GET /recommend/user/{user_id}?k=10&mode=hybrid`: personalised list with `weights` and a per-item `content_score` / `cf_score`. `mode` is `hybrid`, `content`, `cf` or `popular`. A new user can pass `&seed=<track_id>` to start from picked songs. Simulated users are `u_00000` … `u_09999`.
-- `POST /events` `{"user_id": "...", "track_id": "...", "event_type": "play|like|skip"}`: logs a live event. It counts towards that user's next recommendations right away, with no retraining.
-- `POST /admin/reload`: loads newly trained artifacts.
+- `GET /tracks/search?q=queen`: find a `track_id` by title or artist.
+- `GET /tracks/{track_id}`: track metadata.
+- `GET /recommend/similar/{track_id}?k=10`: songs similar to a seed song.
+- `POST /events` `{"user_id": "...", "track_id": "...", "event_type": "play|like|skip"}`: logs what a user did. Played and liked songs shape their profile, and skipped songs are never recommended to them.
+- `GET /recommend/user/{user_id}?k=10`: personal list from the user's logged songs. A new user can add `&seed=<track_id>` (repeatable) to start from songs they pick. With no history and no seeds, they get the most popular songs (`cold_start: true`).
+- `GET /health`, `POST /admin/reload`.
+
+## How it works
+
+1. Each track becomes one sparse vector made of three blocks: standardised audio features (danceability, energy, valence, acousticness, instrumentalness, liveness, speechiness, loudness, tempo), the multi-hot genres of its artists, and its release decade. They're weighted 0.5 / 0.35 / 0.15, so similarity is the weighted sum of the per-block cosines.
+2. Exact cosine nearest-neighbour search runs over all tracks (`BruteForceIndex` behind a `NeighborIndex` interface, so a faster index can be swapped in later). There's no song×song matrix, and a request takes about 7 ms.
+3. Results are re-ranked so each recording appears once (re-releases share a title and artist) and no artist takes more than 2 of the slots.
+
+## Limitations
+
+- Genres are per artist, not per song, and 9% of tracks have none.
+- Nine audio numbers are a coarse description of sound. There are no lyrics or audio embeddings.
+- A user's taste is a single average, so mixed tastes blur together.
+- Weights are hand-set. Without listener feedback there's no honest signal to tune them on.
+- Title variants ("… - Remastered 2011") show as separate songs.

@@ -16,7 +16,7 @@ def create_app(cfg: dict | None = None) -> FastAPI:
         app.state.recsys = load_state(cfg)
         yield
 
-    app = FastAPI(title="Hybrid music recommender", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="Content-based music recommender", version="0.2.0", lifespan=lifespan)
     app.include_router(router)
     return app
 

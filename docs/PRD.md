@@ -2,6 +2,8 @@
 
 Oct 21, 2026
 
+> **Scope change, Oct 22, 2026: the system is now content-based only.** No real listening data exists for this catalog, so collaborative filtering, the synthetic user generator, the hybrid blend (including the 70/30 anchor) and Gates 2–3 were removed. The hybrid version is kept at git tag `hybrid-v1`. Evaluation uses list-quality proxies with no user data, and `/recommend/user` builds a content profile from the user's logged events or picked seeds. Reasons and results are in `docs/decisions.md` ("Scope change"). The rest of this document is the original spec, kept unedited for reference.
+
 ## Overview and goals
 
 We are building a hybrid music recommender, content-based plus collaborative filtering, served by a FastAPI backend, as a course submission. Given a seed track or a user, it returns a ranked list of songs plus a breakdown of how much each engine contributed.

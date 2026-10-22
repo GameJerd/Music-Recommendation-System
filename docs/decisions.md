@@ -2,6 +2,18 @@
 
 Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs/PRD.md`; this file records what we decided while building.
 
+## Scope change: content-based only (your decision, 2026-10-22)
+
+- **Why.** There is no real listening data for this catalog. Collaborative filtering could only train on users we simulated, so its numbers showed whether the pipeline recovered what we built in, not quality for real listeners. Content-based recommendation works on real data alone, from the first request. The hybrid also had an open blend issue (see Phase 3).
+- **What was removed.** The user simulator, ALS, item-KNN, the hybrid blend and its 70/30 anchor, `train_cf.py`, Gates 2–3, and the `implicit` dependency. The full hybrid is preserved at git tag **`hybrid-v1`** (`git checkout hybrid-v1`). The Phase 2–3 entries below are kept as history.
+- **What `/recommend/user` does now.** The profile is the mean content vector of the tracks the user played or liked through `POST /events`, plus any `seed` tracks they pick. Skipped tracks are never recommended. With no history and no seeds, the user gets the dataset's most popular tracks (its real `popularity` column), with `cold_start: true`.
+- **Artist cap (default 2 per primary artist per list).** Genres are per artist, so before the cap 49% of a "similar" list was the seed's own artist (4.5 distinct artists in 10). With the cap it's 16%, with 7.4 distinct artists (`reports/content_eval.md`). The cap applies to the primary (first-listed) artist, so features like "Tony Yayo, Eminem" still pass for an Eminem seed.
+- **Popularity boost: built, off by default.** `score = cosine + boost · popularity/100`. At 0.1 it raises the mean popularity of results from 32.6 to 37.1 and barely changes the other proxies. Without users there's no evidence either way, so the default stays at pure similarity and the knob is in config.
+- **Block weights stay at 0.5 / 0.35 / 0.15, untuned.** Tuning needs a signal of what listeners like, and the only signals left are proxies that the weights themselves decide (for example, a bigger genre weight always means more genre match). The ablation shows what each block contributes instead.
+- **Evaluation is list-quality proxies, not accuracy** (`scripts/evaluate.py`). It uses 2,000 seeded random seed tracks and a random-tracks reference row. Genre match is a fair test only for variants that don't use genre as a feature, and the report marks the others as circular. The fair result is **audio-only lists share a genre with the seed 27% of the time, against 7% for random tracks**, so audio features alone carry real genre signal.
+- **The era block is very strong.** With decade in the features, 97–100% of results come from the seed's decade (11% for random tracks). The one-hot decade cosine is all-or-nothing. If cross-era results matter, lower the weight or use a smoother year feature.
+- **Known gaps.** Title variants ("Lose Yourself" vs "Lose Yourself - Soundtrack Version") still appear as separate songs. A user's profile is a single mean, so mixed tastes blur. Search is substring-only.
+
 ## Phase 0
 
 - **Python 3.13 venv.** It is the default interpreter on the dev machine, and `implicit 0.7.3` ships a prebuilt `cp313-win_amd64` wheel, so no C++ compiler is needed and there is no fallback for `implicit`.
@@ -28,7 +40,7 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 
 - **Dedupe at serving time, catalog untouched (your decision, 2026-10-22).** 24,656 rows (14.4%) share a normalised (title, artists) key with another row, and 6,879 of those have identical audio. Results keep the best-scoring copy per key, and excluding a track (the seed, or later the played tracks) also excludes its copies. Title variants such as "- Remastered 2011" are different keys and are deliberately not merged, because that would need guessing at title cleanup. The catalog and the evaluation stay keyed by `track_id`.
 
-## Phase 2
+## Phase 2 (historical: removed in the scope change, code at tag `hybrid-v1`)
 
 - **Simulator model** (`src/recsys/data/simulate.py`). There are 12 hand-written personas. Each is defined by targets on standardised audio features, preferred decades, and 5 favourite artists drawn with a seed from the 50 best-matching artists that have at least 10 tracks. A user mixes 1 persona (60%) or 2 (40%, weights 0.5–0.9 / rest), plus a personal tilt on the audio features. Hidden taste uses 8-d random factors per track and per primary artist. A user's hidden vector is their personas' hidden centres plus noise, so same-persona users share hidden taste that only co-plays reveal. Visible and hidden scores are each z-scored per user over the catalog, then mixed by `visible_share`.
 - **Sharpness, `beta_affinity` 5.0 rather than the first guess of 2.5.** At 2.5 each user spread plays over about 36k tracks. 488k plays landed on 129k tracks with almost no repeats, and the long-tail self-check failed (Gini 0.40). A sweep in a scratch script (128 users) gave effective support per user ≈ 36k / 5k / 1.1k at β = 2.5 / 4 / 5. We chose 5: the top 1% of tracks take about 23% of plays, Gini is 0.66, same-persona co-play is 4.3× chance, and 367k distinct user-track pairs over 488k plays means repeats exist. `beta_popularity` (2.5) matters much less, because the z-scored log prior is compressed at the top. Mean popularity of played tracks only moves from 43 to 48.
@@ -42,7 +54,7 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **ALS defaults** (not yet tuned): 64 factors, regularisation 0.05, 15 iterations, α = 10. BLAS is limited to 1 thread while fitting, as `implicit` recommends.
 - **Item-KNN scores below popularity** (NDCG@10 0.0023 vs 0.0044 on validation). Most items have only a few plays, so cosine neighbours of rare items are noise, and its recommendations scatter over 19.6k distinct items. It stays as the PRD's baseline. Phase 4 can try K, BM25 weighting or a minimum support.
 
-## Phase 3
+## Phase 3 (historical: removed in the scope change, code at tag `hybrid-v1`)
 
 - **The API serves user histories from `artifacts/cf/history.parquet`** (per user and track: plays, likes), written by `train_cf.py` next to the model. Live events from SQLite are merged in on each request, so n, the played-track exclusion and the content profile include them right away.
 - **Fold-in for live users.** A user with live events (or a new user) gets an ALS vector from one closed-form ALS user step against the fixed item factors, with no retraining. On the full data it reproduces implicit's trained user vectors at cosine ≥ 0.999 (20 sampled users), which also confirms implicit uses λ unscaled. A unit test covers it.
@@ -54,7 +66,7 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **`train_cf.py --include-live`** adds SQLite live events to the *serving* model and history only. Reported metrics stay simulated-only, as the PRD says.
 - **Open issue, proposed change pending (see the Phase 3 report):** the PRD's rule that a track with no CF vector gets its content score only makes those tracks win the blend. About 88k of 170k tracks were never played in the simulation, and 97% of hybrid top-10 slots go to them (validation NDCG@10 0.0022, vs 0.0380 for CF-only). Imputing a neutral CF score fixes it: 0 gives 0.0386 with 2% unplayed tracks in the top 10, and the pool mean gives 0.0373 with 16%.
 
-## PRD amendments (approved with the plan, 2026-10-22)
+## PRD amendments (approved with the plan, 2026-10-22; 1–4 applied to the hybrid only)
 
 1. **Split for light users.** Per user, ordered by time: test = last `max(1, round(0.1n))` if n ≥ 2, validation = the `max(1, round(0.1n))` before it if n ≥ 3, the rest is train. A plain 10% would give the 1–4 play bucket no test items. Evaluation buckets use the train count.
 2. **Cold-item set.** A seeded 2% of interacted tracks, with all their interactions moved to test. "No train interactions" would cover about 150k tracks.

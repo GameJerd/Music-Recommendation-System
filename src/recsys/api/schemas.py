@@ -25,28 +25,22 @@ class RecItem(BaseModel):
     track_name: str
     artist_name: str
     genre: str
-    score: float
-    content_score: float | None = None
-    cf_score: float | None = None
-
-
-class Weights(BaseModel):
-    content: float
-    cf: float
+    year: int
+    popularity: int
+    score: float = Field(description="Ranking score: similarity + popularity_boost * popularity/100")
+    similarity: float | None = Field(description="Cosine similarity to the seed or profile; null for popular picks")
 
 
 class SimilarResponse(BaseModel):
     seed_track_id: str
-    weights: Weights
     items: list[RecItem]
 
 
 class UserRecResponse(BaseModel):
     user_id: str
-    mode: str = Field(description="Mode actually served: a cold-start user falls back to content or popular")
+    mode: str = Field(description="Mode actually served; a user with no history and no seeds gets `popular`")
     cold_start: bool
-    n_plays: int = Field(description="Play events in the user's history (training + live); drives the CF weight")
-    weights: Weights
+    n_history: int = Field(description="Distinct tracks the user played or liked (logged via /events)")
     items: list[RecItem]
 
 

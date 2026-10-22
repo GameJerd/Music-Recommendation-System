@@ -42,14 +42,6 @@ def user_events(engine: Engine, user_id: str) -> list[tuple[str, str]]:
         return [tuple(r) for r in rows]
 
 
-def live_events_frame(engine: Engine) -> pd.DataFrame:
-    """All live events in the interaction-record layout, for retraining."""
-    cols = ["user_id", "track_id", "event_type", "weight", "ts", "source"]
-    df = pd.read_sql(select(*[getattr(Event, c) for c in cols]), engine)
-    df["ts"] = pd.to_datetime(df["ts"], utc=True)
-    return df
-
-
 def get_track(engine: Engine, track_id: str) -> Track | None:
     with Session(engine) as s:
         return s.get(Track, track_id)

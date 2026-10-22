@@ -34,37 +34,13 @@ def tracks() -> pd.DataFrame:
     return attach_genres(df, GENRES)
 
 
-# FIXTURE interactions over the fixture catalog. t6 and t7 are never played, so they have no CF vector.
-PLAYS = {"u_a": ["t1", "t1", "t1", "t2", "t2", "t5"], "u_b": ["t1", "t2", "t4"], "u_c": ["t3", "t4"],
-         "u_d": ["t2", "t5"]}
-LIKES = {"u_a": ["t2"]}
-
-
 @pytest.fixture
-def interactions() -> pd.DataFrame:
-    rows = [(u, t, "play") for u, ts in PLAYS.items() for t in ts] + [(u, t, "like") for u, ts in LIKES.items()
-                                                                       for t in ts]
-    df = pd.DataFrame(rows, columns=["user_id", "track_id", "event_type"])
-    df["weight"], df["source"] = 1, "simulated"
-    df["ts"] = pd.Timestamp("2026-07-01", tz="UTC") + pd.to_timedelta(range(len(df)), unit="min")
-    return df
-
-
-@pytest.fixture
-def cfg(tracks, interactions, tmp_path):
-    from recsys.engines.collaborative import ALSModel
-    from recsys.engines.hybrid import aggregate_history
-
+def cfg(tracks, tmp_path):
     cfg = load_config()
-    cfg["paths"] = {**cfg["paths"], "content": str(tmp_path / "content"), "cf": str(tmp_path / "cf"),
-                    "db": str(tmp_path / "test.db")}
+    cfg["paths"] = {**cfg["paths"], "content": str(tmp_path / "content"), "db": str(tmp_path / "test.db")}
     X, info = build_content(tracks, cfg["features"]["block_weights"])
     save_content(tmp_path / "content", X, tracks, {"version": "content-test", **info})
     write_tracks(make_engine(tmp_path / "test.db"), tracks)
-    als = ALSModel.fit(interactions, {**cfg["cf"], "factors": 2, "iterations": 10}, seed=0)
-    als.save(tmp_path / "cf")
-    aggregate_history(interactions).to_parquet(tmp_path / "cf" / "history.parquet", index=False)
-    (tmp_path / "cf" / "meta.json").write_text('{"version": "cf-test"}')
     return cfg
 
 
