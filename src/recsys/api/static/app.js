@@ -1,6 +1,7 @@
 // Vibify: a small single-page client for the recommender API (no build step).
 "use strict";
 
+const root = document.documentElement;
 const view = document.getElementById("view");
 const userInput = document.getElementById("user");
 const recentList = document.getElementById("recent");
@@ -10,26 +11,36 @@ const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 const clamp01 = (x) => Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0.5));
 const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
+const store = {
+  get: (k) => { try { return localStorage.getItem(k); } catch { return null; } },
+  set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
+};
+
+/* ---------- appearance (theme + cover style), chosen in the dialog ---------- */
+const dialog = document.getElementById("appearance");
+document.getElementById("open-appearance").addEventListener("click", () => {
+  dialog.querySelector(`input[name=theme][value="${root.dataset.theme}"]`).checked = true;
+  dialog.querySelector(`input[name=cover][value="${root.dataset.cover}"]`).checked = true;
+  dialog.showModal();
+});
+dialog.addEventListener("change", (ev) => {
+  const { name, value } = ev.target;
+  root.dataset[name] = value;
+  store.set(`vibify.${name}`, value);
+});
+dialog.addEventListener("click", (ev) => { if (ev.target === dialog) dialog.close(); }); // click outside closes
 
 /* ---------- user ---------- */
-const USER_KEY = "vibify.user";
-function loadUser() {
-  try {
-    const saved = localStorage.getItem(USER_KEY);
-    if (saved) return saved;
-  } catch { /* storage blocked: fall through */ }
-  return "guest-" + Math.random().toString(36).slice(2, 6);
-}
-let user = loadUser();
+let user = store.get("vibify.user") || "guest-" + Math.random().toString(36).slice(2, 6);
+store.set("vibify.user", user);
 userInput.value = user;
 userInput.addEventListener("change", () => {
   user = userInput.value.trim() || user;
   userInput.value = user;
-  try { localStorage.setItem(USER_KEY, user); } catch { /* per-session only */ }
+  store.set("vibify.user", user);
   refreshRecent();
   render();
 });
-try { localStorage.setItem(USER_KEY, user); } catch { /* ignore */ }
 
 /* ---------- api ---------- */
 async function api(path, options) {
@@ -50,45 +61,51 @@ const logEvent = (trackId, eventType) => api("/events", {
   body: JSON.stringify({ user_id: user, track_id: trackId, event_type: eventType }),
 });
 
-/* ---------- generated covers ----------
-   No artwork exists in the dataset, so each cover is drawn from the song's audio features:
-   hue = mood (sad = deep blue, through violet and magenta, to happy = amber; never green),
-   disc size = energy, disc position = danceability, groove spacing = tempo, diagonal stripes = very
-   danceable, grain = acoustic, disc colour shift = instrumental. Songs that sound alike look alike. */
-function coverArt(a = {}) {
-  const v = clamp01(a.valence), e = clamp01(a.energy), d = clamp01(a.danceability);
-  const ac = clamp01(a.acousticness), ins = clamp01(a.instrumentalness);
-  const tempo = clamp01((a.tempo - 60) / 140);
-  const hue = (225 + v * 160) % 360;                 // 225 blue -> 300 magenta -> 25 amber
-  const sat = (38 + e * 50) * (1 - ac * 0.35);
-  const lit = 22 + e * 14;
-  const discHue = (hue + 25 + ins * 60) % 360;
-  const cx = (28 + d * 44).toFixed(1), cy = (64 - e * 22).toFixed(1);
-  const r = (18 + e * 22).toFixed(1);                 // disc radius, % of the cover
-  const groove = (2.6 - tempo * 1.6).toFixed(2);      // faster = tighter grooves
-  const disc = `hsl(${discHue} ${Math.min(95, sat + 22)}% ${Math.min(70, lit + 30)}%)`;
-  const layers = [
-    `repeating-radial-gradient(circle at ${cx}% ${cy}%, rgb(0 0 0 / .16) 0 .35%, transparent .35% ${groove}%)`,
-    `radial-gradient(circle at ${cx}% ${cy}%, ${disc} 0 ${r}%, transparent calc(${r}% + .6%))`,
-  ];
-  if (d > 0.6) layers.push(`repeating-linear-gradient(120deg, rgb(255 255 255 / .06) 0 2px, transparent 2px ${(11 - d * 6).toFixed(1)}px)`);
-  layers.push(`linear-gradient(160deg, hsl(${hue} ${sat}% ${lit}%), hsl(${(hue + 18) % 360} ${sat}% ${(lit * 0.42).toFixed(1)}%))`);
+/* ---------- cover colours ----------
+   The dataset has no artwork. Each song gets a colour from a small curated palette, picked by its
+   sound: mood (valence) and energy choose the colour, very acoustic songs get the earthy tones,
+   danceability nudges the hue a little. Songs that sound alike get the same family of colour. */
+const PALETTE = {
+  slate: [212, 18, 46], blue: [214, 62, 52], indigo: [234, 48, 58], teal: [186, 54, 42],
+  violet: [258, 36, 58], sage: [148, 24, 46], rose: [346, 62, 60], coral: [12, 72, 62],
+  sand: [34, 36, 60], amber: [38, 80, 55], olive: [74, 24, 44],
+};
+const MOOD_ENERGY = [            // rows: sad -> happy, columns: calm -> energetic
+  ["slate", "blue", "indigo"],
+  ["teal", "blue", "violet"],
+  ["sage", "rose", "coral"],
+  ["sand", "amber", "coral"],
+];
+const ACOUSTIC = ["slate", "sage", "olive", "sand"];
+
+function colours(a = {}) {
+  const v = clamp01(a.valence), e = clamp01(a.energy), d = clamp01(a.danceability), ac = clamp01(a.acousticness);
+  const mood = Math.min(3, Math.floor(v * 4));
+  const name = ac > 0.7 ? ACOUSTIC[mood] : MOOD_ENERGY[mood][Math.min(2, Math.floor(e * 3))];
+  const [h0, s, l] = PALETTE[name];
+  const h = h0 + (d - 0.5) * 14;
+  const hsl = (dh, sm, lm) => `hsl(${(h + dh).toFixed(0)} ${Math.min(95, s * sm).toFixed(0)}% ${Math.min(85, l * lm).toFixed(0)}%)`;
   return {
-    style: `background:${layers.join(",")};--grain:${(0.12 + ac * 0.5).toFixed(2)}`,
-    tint: `hsl(${hue} ${Math.max(30, sat).toFixed(0)}% ${Math.min(34, lit + 6).toFixed(0)}%)`,
+    c1: hsl(0, 1, 1), c2: hsl(20, 0.95, 0.55), c3: hsl(-16, 1.15, 1.35), cb: hsl(8, 0.85, 0.42),
   };
 }
-const cover = (audio) => `<div class="cover" style="${coverArt(audio).style}" aria-hidden="true"></div>`;
+const vars = (c) => `--c1:${c.c1};--c2:${c.c2};--c3:${c.c3};--cb:${c.cb}`;
+const initial = (name) => esc((String(name).match(/[\p{L}\p{N}]/u) || ["♪"])[0].toUpperCase());
+const cover = (t) => `<span class="cover" style="${vars(colours(t.audio))}" aria-hidden="true"><span>${initial(t.track_name)}</span></span>`;
 
-/* ---------- small templates ---------- */
-const nameOf = (t) => t.track_name;
+function setAmbient(t) {
+  const c = t ? colours(t.audio) : null;
+  root.style.setProperty("--amb1", c ? c.c1 : "transparent");
+  root.style.setProperty("--amb2", c ? c.c2 : "transparent");
+}
+
+/* ---------- templates ---------- */
 const artistOf = (t) => t.artist_name ?? (t.artists || []).join(", ");
 const trackHref = (t) => `#/track/${encodeURIComponent(t.track_id)}`;
-
 const card = (t) => `
   <a class="card" href="${trackHref(t)}">
-    ${cover(t.audio)}
-    <b>${esc(nameOf(t))}</b>
+    ${cover(t)}
+    <b>${esc(t.track_name)}</b>
     <span>${esc(artistOf(t))}</span>
   </a>`;
 const shelf = (items) => `<div class="shelf">${items.map(card).join("")}</div>`;
@@ -96,8 +113,8 @@ const shelfHead = (title, sub = "") =>
   `<div class="shelf-head"><h2>${esc(title)}</h2>${sub ? `<p>${esc(sub)}</p>` : ""}</div>`;
 const row = (t, end = t.year) => `
   <a class="row" href="${trackHref(t)}">
-    ${cover(t.audio)}
-    <span class="t"><b>${esc(nameOf(t))}</b><span>${esc(artistOf(t))}</span></span>
+    ${cover(t)}
+    <span class="t"><b>${esc(t.track_name)}</b><span>${esc(artistOf(t))}</span></span>
     <span class="end">${esc(end)}</span>
   </a>`;
 const searchForm = (q = "") => `
@@ -106,6 +123,12 @@ const searchForm = (q = "") => `
     <input name="q" type="search" value="${esc(q)}" placeholder="Songs or artists"
            aria-label="Search songs or artists" autocomplete="off">
   </form>`;
+const skeletonShelf = (n = 12) => `<div class="shelf">${
+  Array.from({ length: n }, () => `<div class="sk-card"><div class="sk cover-sk"></div><div class="sk sk-line" style="width:80%"></div><div class="sk sk-line" style="width:55%"></div></div>`).join("")}</div>`;
+const SKELETON = {
+  home: `<div class="page"><div class="sk" style="height:34px;width:220px;margin:4px 0 26px"></div>${skeletonShelf()}</div>`,
+  track: `<div class="sk-hero"></div><div class="page">${skeletonShelf(6)}</div>`,
+};
 
 /* ---------- toast ---------- */
 let toastTimer;
@@ -122,7 +145,7 @@ async function refreshRecent() {
     const seen = new Set();
     const items = (await getHistory())
       .filter((h) => h.event_type !== "skip" && !seen.has(h.track.track_id) && seen.add(h.track.track_id))
-      .slice(0, 12);
+      .slice(0, 15);
     recentList.innerHTML = items.length
       ? items.map((h) => `<li>${row(h.track, "")}</li>`).join("")
       : `<li class="empty">Songs you play or like show up here.</li>`;
@@ -133,13 +156,15 @@ async function refreshRecent() {
 
 /* ---------- views ---------- */
 async function homeView(isCurrent) {
+  view.innerHTML = SKELETON.home;
   const listened = (await getHistory()).filter((h) => h.event_type !== "skip");
   if (!isCurrent()) return;
   if (!listened.length) {
     const popular = await api(`/recommend/user/${u()}?k=12`);
     if (!isCurrent()) return;
+    setAmbient(popular.items[0]);
     view.innerHTML = `
-      <div class="view-pad">
+      <div class="page">
         <section class="welcome">
           <h1>Find music by how it sounds.</h1>
           <p>Search for a song you love. Vibify suggests others with a similar energy, mood, tempo and era,
@@ -147,7 +172,7 @@ async function homeView(isCurrent) {
           ${searchForm()}
         </section>
         <section>
-          ${shelfHead("Popular in the catalog", "Until you play or like something, these are the safest bets.")}
+          ${shelfHead("Popular in the catalog", "Until you play or like something")}
           ${shelf(popular.items)}
         </section>
       </div>`;
@@ -155,16 +180,17 @@ async function homeView(isCurrent) {
   }
   const last = listened[0].track;
   const [mix, more] = await Promise.all([
-    api(`/recommend/user/${u()}?k=18`),
+    api(`/recommend/user/${u()}?k=12`),
     api(`/recommend/similar/${encodeURIComponent(last.track_id)}?k=12`),
   ]);
   if (!isCurrent()) return;
+  setAmbient(mix.items[0] || last);
   const n = new Set(listened.map((h) => h.track.track_id)).size;
   view.innerHTML = `
-    <div class="view-pad">
+    <div class="page">
       <section>
-        <h1 class="mix-title">Your mix</h1>
-        <p class="mix-sub">Built from the sound of the ${n} ${n === 1 ? "song" : "songs"} you've played or liked.</p>
+        <h1 class="page-title">Your mix</h1>
+        <p class="page-sub">Built from the sound of ${n === 1 ? "the song" : `the ${n} songs`} you've played or liked.</p>
         ${shelf(mix.items)}
       </section>
       <section>
@@ -176,8 +202,9 @@ async function homeView(isCurrent) {
 
 let searchTimer;
 async function searchView(isCurrent, params) {
+  setAmbient(null);
   const q = params.get("q") || "";
-  view.innerHTML = `<div class="view-pad">${searchForm(q)}<div class="results" aria-live="polite"></div></div>`;
+  view.innerHTML = `<div class="page"><h1 class="page-title" style="margin-bottom:16px">Search</h1>${searchForm(q)}<div class="results" aria-live="polite"></div></div>`;
   const input = view.querySelector("input[name=q]");
   const results = view.querySelector(".results");
   input.focus();
@@ -187,7 +214,7 @@ async function searchView(isCurrent, params) {
     term = term.trim();
     history.replaceState(null, "", term ? `#/search?q=${encodeURIComponent(term)}` : "#/search");
     if (!term) {
-      results.innerHTML = `<p class="note">Search by song title or artist.</p>`;
+      results.innerHTML = `<p class="note">Find a song by its title or artist.</p>`;
       return;
     }
     const found = await api(`/tracks/search?q=${encodeURIComponent(term)}&limit=30`);
@@ -198,7 +225,7 @@ async function searchView(isCurrent, params) {
   };
   input.addEventListener("input", () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => run(input.value).catch(showError), 220);
+    searchTimer = setTimeout(() => run(input.value).catch(showError), 200);
   });
   await run(q);
 }
@@ -210,16 +237,17 @@ const SOUND = [
 ];
 
 async function trackView(isCurrent, _params, id) {
+  view.innerHTML = SKELETON.track;
   const [t, sim, hist] = await Promise.all([
     api(`/tracks/${encodeURIComponent(id)}`),
     api(`/recommend/similar/${encodeURIComponent(id)}?k=20`),
     getHistory(),
   ]);
   if (!isCurrent()) return;
+  setAmbient(t);
   const mine = hist.filter((h) => h.track.track_id === id);
   const liked = mine.some((h) => h.event_type === "like");
-  const skipped = mine.some((h) => h.event_type === "skip");
-  const art = coverArt(t.audio);
+  const hidden = mine.some((h) => h.event_type === "skip");
   const a = t.audio;
   // "Bohemian Rhapsody - Remastered 2011" -> title + version line, as music apps show it
   const cut = t.track_name.indexOf(" - ");
@@ -232,10 +260,10 @@ async function trackView(isCurrent, _params, id) {
     + `<div><dt>Loudness</dt><dd>${a.loudness.toFixed(1)} dB</dd>${bar((a.loudness + 60) / 60)}</div>`;
 
   view.innerHTML = `
-    <header class="hero" style="--tint:${art.tint}">
-      <div class="cover" style="${art.style}" aria-hidden="true"></div>
+    <header class="hero" style="${vars(colours(a))}">
+      ${cover(t)}
       <div class="hero-text">
-        <h1 class="${title.length > 22 ? "long" : ""}">${esc(title)}</h1>
+        <h1>${esc(title)}</h1>
         ${version ? `<p class="version">${esc(version)}</p>` : ""}
         <div class="meta">
           ${t.artists.map((x) => `<a href="#/search?q=${encodeURIComponent(x)}">${esc(x)}</a>`).join("")}
@@ -248,17 +276,17 @@ async function trackView(isCurrent, _params, id) {
          target="_blank" rel="noopener" data-act="play">${icon("i-play")}Listen on Spotify</a>
       <button class="icon-btn" data-act="like" aria-pressed="${liked}" aria-label="${liked ? "Liked" : "Like"}"
               ${liked ? "disabled" : ""}>${icon(liked ? "i-heart-fill" : "i-heart")}</button>
-      <button class="text-btn" data-act="skip" ${skipped ? "disabled" : ""}>${skipped ? "Hidden from your mix" : "Not for me"}</button>
+      <button class="pill-btn" data-act="skip" ${hidden ? "disabled" : ""}>${icon("i-hide")}${hidden ? "Hidden from your mix" : "Not for me"}</button>
     </div>
     <div class="track-body">
       <section aria-labelledby="sim-h">
         <h2 id="sim-h">Similar songs</h2>
         <ol class="tracklist">
           ${sim.items.map((s, i) => `<li><a class="row" href="${trackHref(s)}">
-              <span class="n">${i + 1}</span>${cover(s.audio)}
+              <span class="n">${i + 1}</span>${cover(s)}
               <span class="t"><b>${esc(s.track_name)}</b><span>${esc(s.artist_name)}</span></span>
               <span class="yr">${s.year}</span>
-              <span class="match" title="Similarity of sound, genre and era">${Math.round(s.similarity * 100)}%</span>
+              <span class="match" title="How close it is in sound, genre and era">${Math.round(s.similarity * 100)}%</span>
             </a></li>`).join("")}
         </ol>
       </section>
@@ -271,7 +299,7 @@ async function trackView(isCurrent, _params, id) {
   view.dataset.track = id;
 }
 
-/* ---------- actions on the track page ---------- */
+/* ---------- actions on the song page ---------- */
 view.addEventListener("click", async (ev) => {
   const el = ev.target.closest("[data-act]");
   if (!el || !view.dataset.track) return;
@@ -290,7 +318,7 @@ view.addEventListener("click", async (ev) => {
     } else if (act === "skip") {
       await logEvent(id, "skip");
       el.disabled = true;
-      el.textContent = "Hidden from your mix";
+      el.innerHTML = `${icon("i-hide")}Hidden from your mix`;
       toast("Got it. This song won't be suggested again.");
     }
     refreshRecent();
@@ -312,8 +340,8 @@ let renderSeq = 0;
 
 function showError(err) {
   view.innerHTML = err.status === 404
-    ? `<div class="error"><b>That song isn't in the catalog.</b><a href="#/search">Search for another one.</a></div>`
-    : `<div class="error"><b>The recommender didn't respond.</b>${esc(err.message)}. Check that the server is running, then reload.</div>`;
+    ? `<div class="error"><b>That song isn't in the catalog.</b><a href="#/search">Search for another one</a></div>`
+    : `<div class="error"><b>Vibify can't reach the recommender.</b>${esc(err.message)}. Check that the server is running, then reload the page.</div>`;
 }
 
 async function render() {
@@ -327,7 +355,6 @@ async function render() {
   });
   delete view.dataset.track;
   view.scrollTop = 0;
-  if (name !== "search") view.innerHTML = `<p class="loading">Loading…</p>`;
   try {
     await viewFn(() => seq === renderSeq, new URLSearchParams(query), arg && decodeURIComponent(arg));
   } catch (err) {

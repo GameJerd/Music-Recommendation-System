@@ -1,45 +1,105 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="glass-dark" data-cover="aura">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vibify</title>
   <meta name="description" content="Find music by how it sounds.">
+  <script>
+    // apply the look before first paint: ?theme=&cover= in the URL (to try or share one), else the saved one
+    (function () {
+      var q = new URLSearchParams(location.search), d = document.documentElement, saved = {};
+      try { saved = { theme: localStorage.getItem("vibify.theme"), cover: localStorage.getItem("vibify.cover") }; } catch (e) {}
+      d.dataset.theme = q.get("theme") || saved.theme || "glass-dark";
+      d.dataset.cover = q.get("cover") || saved.cover || "aura";
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
-    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21h-6v-6H9v6H3z" fill="currentColor"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="m15.5 15.5 5 5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
-    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z" fill="currentColor"/></symbol>
-    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.5s-8-4.9-8-11A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5c0 6.1-8 11-8 11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
-    <symbol id="i-heart-fill" viewBox="0 0 24 24"><path d="M12 20.5s-8-4.9-8-11A4.5 4.5 0 0 1 12 7a4.5 4.5 0 0 1 8 2.5c0 6.1-8 11-8 11z" fill="currentColor"/></symbol>
-    <symbol id="i-skip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m6 18 12-12" stroke="currentColor" stroke-width="2"/></symbol>
+    <symbol id="i-logo" viewBox="0 0 24 24"><rect x="4" y="9" width="3.2" height="6" rx="1.6"/><rect x="10.4" y="4.5" width="3.2" height="15" rx="1.6"/><rect x="16.8" y="7.5" width="3.2" height="9" rx="1.6"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.4 12 4l8 6.4V19a1 1 0 0 1-1 1h-4.6v-5.6H9.6V20H5a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.4-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z" fill="currentColor"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-heart-fill" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" fill="currentColor"/></symbol>
+    <symbol id="i-hide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11m0-11-11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   </svg>
+
+  <div class="ambient" aria-hidden="true"></div>
 
   <div class="app">
     <aside class="side">
       <a class="brand" href="#/" aria-label="Vibify home">
-        <span class="brand-mark" aria-hidden="true"></span>Vibify
+        <svg class="brand-mark" aria-hidden="true"><use href="#i-logo"/></svg>Vibify
       </a>
       <nav class="nav" aria-label="Main">
-        <a href="#/" data-nav="home"><svg><use href="#i-home"/></svg>Home</a>
-        <a href="#/search" data-nav="search"><svg><use href="#i-search"/></svg>Search</a>
+        <a href="#/" data-nav="home"><svg aria-hidden="true"><use href="#i-home"/></svg>Home</a>
+        <a href="#/search" data-nav="search"><svg aria-hidden="true"><use href="#i-search"/></svg>Search</a>
       </nav>
-      <label class="who">
-        <span>Listening as</span>
-        <input id="user" autocomplete="off" spellcheck="false" maxlength="40">
-      </label>
       <section class="recent" aria-labelledby="recent-h">
         <h2 id="recent-h">Recently played</h2>
         <ol id="recent"></ol>
       </section>
+      <div class="side-foot">
+        <label class="who">
+          <span>Listening as</span>
+          <input id="user" autocomplete="off" spellcheck="false" maxlength="40">
+        </label>
+        <button class="appearance-btn" type="button" id="open-appearance" aria-label="Appearance">
+          <svg aria-hidden="true"><use href="#i-sliders"/></svg><span>Appearance</span>
+        </button>
+      </div>
     </aside>
     <main id="view" tabindex="-1"></main>
   </div>
+
+  <dialog id="appearance" aria-labelledby="appearance-h">
+    <form method="dialog">
+      <div class="dialog-head">
+        <h2 id="appearance-h">Appearance</h2>
+        <button class="icon-btn small" value="close" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+      </div>
+      <fieldset>
+        <legend>Theme</legend>
+        <div class="opts">
+          <label class="opt"><input type="radio" name="theme" value="glass-dark">
+            <span class="theme-swatch" data-preview="glass-dark"><i></i><i></i></span>
+            <b>Glass dark</b><small>Translucent, Apple Music style</small></label>
+          <label class="opt"><input type="radio" name="theme" value="glass-light">
+            <span class="theme-swatch" data-preview="glass-light"><i></i><i></i></span>
+            <b>Glass light</b><small>Bright and airy</small></label>
+          <label class="opt"><input type="radio" name="theme" value="studio">
+            <span class="theme-swatch" data-preview="studio"><i></i><i></i></span>
+            <b>Studio</b><small>Flat black, Spotify style</small></label>
+          <label class="opt"><input type="radio" name="theme" value="mono">
+            <span class="theme-swatch" data-preview="mono"><i></i><i></i></span>
+            <b>Mono</b><small>Black and white, covers in grey</small></label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Album covers</legend>
+        <div class="opts">
+          <label class="opt"><input type="radio" name="cover" value="aura">
+            <span class="cover as-aura sample"><span>B</span></span>
+            <b>Aura</b><small>Soft, blurred colour</small></label>
+          <label class="opt"><input type="radio" name="cover" value="monogram">
+            <span class="cover as-monogram sample"><span>B</span></span>
+            <b>Monogram</b><small>Colour tile with the song's initial</small></label>
+          <label class="opt"><input type="radio" name="cover" value="gradient">
+            <span class="cover as-gradient sample"><span>B</span></span>
+            <b>Gradient</b><small>Clean two-tone</small></label>
+        </div>
+      </fieldset>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>
 </body>
