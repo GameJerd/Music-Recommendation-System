@@ -4,8 +4,15 @@ scale:
 paths:
   raw: data/raw
   synthetic: data/synthetic
-  artifacts: artifacts
-  db: artifacts/recsys.db
+  content: artifacts/content
+  db: data/recsys.db          # holds tracks and (from Phase 3) logged events, so not under artifacts/
+
+features:
+  # starting values; tuned on validation in Phase 4. Zero drops a block (used for ablations).
+  block_weights:
+    audio: 0.5
+    genre: 0.35
+    decade: 0.15
 
 blend:
   w_max: 0.75

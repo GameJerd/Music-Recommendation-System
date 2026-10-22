@@ -15,6 +15,17 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **Genre coverage.** 9,857 of 28,680 artists have an empty genre list. After joining on every listed artist, 154,535 of 170,653 tracks (90.6%) get at least one of 2,972 genres. The other 9.4% rely on audio and decade only.
 - **Duplicate titles confirmed.** 56,118 rows share a name with another row, across 19,103 distinct names. This backs PRD decision 8 (key everything by `track_id`).
 
+## Phase 1
+
+- **Content vectors are sparse CSR, not dense.** 2,972 genre columns make a dense float32 matrix of about 2 GB. Sparse, the full 170,653 × 2,992 matrix holds 2.5M non-zeros (10 MB). `BruteForceIndex` is one sparse matrix-vector product per query: exact cosine, about 7.5 ms per `/recommend/similar` call end to end.
+- **Block weighting.** Each block (audio, genre, decade) is L2-normalised per row, then scaled by √w, then the whole row is renormalised. With weights summing to 1, the cosine is exactly Σ w_b · cos_b. A unit test checks this. Tracks with no genres are renormalised over audio + decade. Starting weights are audio 0.5, genre 0.35, decade 0.15, to be tuned on validation in Phase 4. A weight of 0 drops a block, which is how the ablation works.
+- **Genres are multi-hot, not TF-IDF.** It's the simplest option the PRD allows. IDF weighting is a cheap Phase 4 ablation if common genres like "rock" swamp similarity.
+- **No per-column audio weights.** The PRD says "weighted", but every column starts at 1 and nothing tunes them, so for now the block weight is the only knob. We'll add per-column weights if the ablation shows one feature dominating.
+- **The SQLite DB lives at `data/recsys.db`, not `artifacts/`.** From Phase 3 it holds logged events, which are data, while `artifacts/` holds rebuildable outputs. Rebuilding features replaces only the `tracks` table.
+- **JSON stored with `ensure_ascii=False`.** Otherwise "Beyoncé" is stored as `Beyoncé` and the LIKE search misses it. A test covers this.
+- **The API fails fast at startup if artifacts are missing.** The error message names the build command.
+- **Search is a substring LIKE on title or artist, sorted by popularity.** It's a full scan, fine at tier S.
+
 ## PRD amendments (approved with the plan, 2026-10-22)
 
 1. **Split for light users.** Per user, ordered by time: test = last `max(1, round(0.1n))` if n ≥ 2, validation = the `max(1, round(0.1n))` before it if n ≥ 3, the rest is train. A plain 10% would give the 1–4 play bucket no test items. Evaluation buckets use the train count.
