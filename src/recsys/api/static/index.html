@@ -1,19 +1,10 @@
 <!doctype html>
-<html lang="en" data-theme="glass-dark" data-cover="aura">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Vibify</title>
   <meta name="description" content="Find music by how it sounds.">
-  <script>
-    // apply the look before first paint: ?theme=&cover= in the URL (to try or share one), else the saved one
-    (function () {
-      var q = new URLSearchParams(location.search), d = document.documentElement, saved = {};
-      try { saved = { theme: localStorage.getItem("vibify.theme"), cover: localStorage.getItem("vibify.cover") }; } catch (e) {}
-      d.dataset.theme = q.get("theme") || saved.theme || "glass-dark";
-      d.dataset.cover = q.get("cover") || saved.cover || "aura";
-    })();
-  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -28,8 +19,6 @@
     <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
     <symbol id="i-heart-fill" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z" fill="currentColor"/></symbol>
     <symbol id="i-hide" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
-    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
-    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6.5 6.5 11 11m0-11-11 11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
   </svg>
 
   <div class="ambient" aria-hidden="true"></div>
@@ -52,53 +41,10 @@
           <span>Listening as</span>
           <input id="user" autocomplete="off" spellcheck="false" maxlength="40">
         </label>
-        <button class="appearance-btn" type="button" id="open-appearance" aria-label="Appearance">
-          <svg aria-hidden="true"><use href="#i-sliders"/></svg><span>Appearance</span>
-        </button>
       </div>
     </aside>
     <main id="view" tabindex="-1"></main>
   </div>
-
-  <dialog id="appearance" aria-labelledby="appearance-h">
-    <form method="dialog">
-      <div class="dialog-head">
-        <h2 id="appearance-h">Appearance</h2>
-        <button class="icon-btn small" value="close" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
-      </div>
-      <fieldset>
-        <legend>Theme</legend>
-        <div class="opts">
-          <label class="opt"><input type="radio" name="theme" value="glass-dark">
-            <span class="theme-swatch" data-preview="glass-dark"><i></i><i></i></span>
-            <b>Glass dark</b><small>Translucent, Apple Music style</small></label>
-          <label class="opt"><input type="radio" name="theme" value="glass-light">
-            <span class="theme-swatch" data-preview="glass-light"><i></i><i></i></span>
-            <b>Glass light</b><small>Bright and airy</small></label>
-          <label class="opt"><input type="radio" name="theme" value="studio">
-            <span class="theme-swatch" data-preview="studio"><i></i><i></i></span>
-            <b>Studio</b><small>Flat black, Spotify style</small></label>
-          <label class="opt"><input type="radio" name="theme" value="mono">
-            <span class="theme-swatch" data-preview="mono"><i></i><i></i></span>
-            <b>Mono</b><small>Black and white, covers in grey</small></label>
-        </div>
-      </fieldset>
-      <fieldset>
-        <legend>Album covers</legend>
-        <div class="opts">
-          <label class="opt"><input type="radio" name="cover" value="aura">
-            <span class="cover as-aura sample"><span>B</span></span>
-            <b>Aura</b><small>Soft, blurred colour</small></label>
-          <label class="opt"><input type="radio" name="cover" value="monogram">
-            <span class="cover as-monogram sample"><span>B</span></span>
-            <b>Monogram</b><small>Colour tile with the song's initial</small></label>
-          <label class="opt"><input type="radio" name="cover" value="gradient">
-            <span class="cover as-gradient sample"><span>B</span></span>
-            <b>Gradient</b><small>Clean two-tone</small></label>
-        </div>
-      </fieldset>
-    </form>
-  </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="app.js"></script>

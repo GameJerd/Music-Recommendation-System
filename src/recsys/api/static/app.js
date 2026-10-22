@@ -16,20 +16,6 @@ const store = {
   set: (k, v) => { try { localStorage.setItem(k, v); } catch { /* storage blocked */ } },
 };
 
-/* ---------- appearance (theme + cover style), chosen in the dialog ---------- */
-const dialog = document.getElementById("appearance");
-document.getElementById("open-appearance").addEventListener("click", () => {
-  dialog.querySelector(`input[name=theme][value="${root.dataset.theme}"]`).checked = true;
-  dialog.querySelector(`input[name=cover][value="${root.dataset.cover}"]`).checked = true;
-  dialog.showModal();
-});
-dialog.addEventListener("change", (ev) => {
-  const { name, value } = ev.target;
-  root.dataset[name] = value;
-  store.set(`vibify.${name}`, value);
-});
-dialog.addEventListener("click", (ev) => { if (ev.target === dialog) dialog.close(); }); // click outside closes
-
 /* ---------- user ---------- */
 let user = store.get("vibify.user") || "guest-" + Math.random().toString(36).slice(2, 6);
 store.set("vibify.user", user);
@@ -90,8 +76,7 @@ function colours(a = {}) {
   };
 }
 const vars = (c) => `--c1:${c.c1};--c2:${c.c2};--c3:${c.c3};--cb:${c.cb}`;
-const initial = (name) => esc((String(name).match(/[\p{L}\p{N}]/u) || ["♪"])[0].toUpperCase());
-const cover = (t) => `<span class="cover" style="${vars(colours(t.audio))}" aria-hidden="true"><span>${initial(t.track_name)}</span></span>`;
+const cover = (t) => `<span class="cover" style="${vars(colours(t.audio))}" aria-hidden="true"></span>`;
 
 function setAmbient(t) {
   const c = t ? colours(t.audio) : null;

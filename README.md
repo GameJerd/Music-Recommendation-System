@@ -38,7 +38,7 @@ Open http://127.0.0.1:8000/ after starting the server. **Vibify** is a small mus
 - **Search:** songs or artists as you type.
 - **Song page:** *Listen on Spotify* (opens the track on Spotify and counts it as played), like, *Not for me* (hides it from your mix), the similar songs with their match percentage, and how the song sounds.
 - **Covers are coloured by each song's sound**, because the dataset has no artwork. Mood and energy pick a colour from a small curated palette (calm blues and slates for sad songs, roses and corals for upbeat ones, earthy sand and sage for acoustic ones). Songs that sound alike look alike.
-- **Appearance** (bottom of the sidebar) switches the look live and remembers it. The themes are *Glass dark* and *Glass light* (translucent, Apple Music style), *Studio* (flat black, Spotify style) and *Mono* (black and white). The cover styles are *Aura* (soft blurred colour), *Monogram* (colour tile with the song's initial) and *Gradient* (two-tone). To try or share a look via a link, use `http://127.0.0.1:8000/?theme=studio&cover=monogram`.
+- **The look:** a translucent dark theme in the Apple Music style. Panels are frosted glass over a soft glow in the colours of what you're viewing, and each song page sits on a blurred version of its own cover.
 - **"Listening as"** in the sidebar is the user ID your events are logged under. Change it to start a fresh listener.
 
 There's no audio playback; streaming was out of scope in the original PRD.
