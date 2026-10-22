@@ -26,6 +26,8 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **The API fails fast at startup if artifacts are missing.** The error message names the build command.
 - **Search is a substring LIKE on title or artist, sorted by popularity.** It's a full scan, fine at tier S.
 
+- **Dedupe at serving time, catalog untouched (your decision, 2026-10-22).** 24,656 rows (14.4%) share a normalised (title, artists) key with another row, and 6,879 of those have identical audio. Results keep the best-scoring copy per key, and excluding a track (the seed, or later the played tracks) also excludes its copies. Title variants such as "- Remastered 2011" are different keys and are deliberately not merged, because that would need guessing at title cleanup. The catalog and the evaluation stay keyed by `track_id`.
+
 ## PRD amendments (approved with the plan, 2026-10-22)
 
 1. **Split for light users.** Per user, ordered by time: test = last `max(1, round(0.1n))` if n ≥ 2, validation = the `max(1, round(0.1n))` before it if n ≥ 3, the rest is train. A plain 10% would give the 1–4 play bucket no test items. Evaluation buckets use the train count.

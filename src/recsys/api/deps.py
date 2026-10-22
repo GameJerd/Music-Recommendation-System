@@ -5,7 +5,7 @@ from fastapi import Request
 from sqlalchemy import Engine
 
 from recsys.config import resolve
-from recsys.engines.content import ContentEngine
+from recsys.engines.content import ContentEngine, dup_keys
 from recsys.features.build import load_content
 from recsys.store.db import make_engine
 
@@ -23,7 +23,8 @@ def load_state(cfg: dict) -> AppState:
     if not (content_dir / "vectors.npz").exists():
         raise RuntimeError(f"No content artifacts in {content_dir}; run `python scripts/build_features.py` first.")
     X, tracks, meta = load_content(content_dir)
-    return AppState(cfg, make_engine(resolve(cfg, "db")), ContentEngine(X, tracks["track_id"].tolist()), meta)
+    content = ContentEngine(X, tracks["track_id"].tolist(), keys=dup_keys(tracks))
+    return AppState(cfg, make_engine(resolve(cfg, "db")), content, meta)
 
 
 def get_state(request: Request) -> AppState:

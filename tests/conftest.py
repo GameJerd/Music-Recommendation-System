@@ -19,6 +19,7 @@ ROWS = [
     ("t4", "River Song",  ["Folk C"],              1974, 20, [0.35, 0.25, 0.45, 0.85, 0.05, 0.15, 0.04, -14, 85]),
     ("t5", "Halo",        ["Beyoncé"],             2008, 90, [0.6, 0.7, 0.5, 0.3, 0.0, 0.2, 0.06, -5, 80]),
     ("t6", "Untagged",    ["Nobody Known"],        2010, 5,  [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, -10, 100]),
+    ("t7", "night drive ", ["Synth A"],            1985, 10, [0.8, 0.9, 0.6, 0.1, 0.5, 0.1, 0.05, -6, 120]),  # copy of t1
 ]
 GENRES = {"Synth A": ["synthpop", "new wave"], "Synth B": ["synthwave"], "Folk C": ["folk"],
           "Beyoncé": ["pop", "r&b"]}
