@@ -18,6 +18,7 @@ class TrackOut(BaseModel):
     genres: list[str]
     year: int
     popularity: int
+    audio: dict[str, float] = Field(description="Spotify audio features (0-1, except loudness in dB, tempo in BPM)")
 
 
 class RecItem(BaseModel):
@@ -27,6 +28,7 @@ class RecItem(BaseModel):
     genre: str
     year: int
     popularity: int
+    audio: dict[str, float]
     score: float = Field(description="Ranking score: similarity + popularity_boost * popularity/100")
     similarity: float | None = Field(description="Cosine similarity to the seed or profile; null for popular picks")
 
@@ -42,6 +44,12 @@ class UserRecResponse(BaseModel):
     cold_start: bool
     n_history: int = Field(description="Distinct tracks the user played or liked (logged via /events)")
     items: list[RecItem]
+
+
+class HistoryItem(BaseModel):
+    event_type: str
+    ts: datetime
+    track: TrackOut
 
 
 class EventIn(BaseModel):

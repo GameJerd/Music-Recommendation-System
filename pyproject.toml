@@ -26,5 +26,8 @@ dev = ["pytest", "httpx"]
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+recsys = ["api/static/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -17,6 +17,7 @@ class Track(Base):
     genres: Mapped[list] = mapped_column(JSON)
     year: Mapped[int] = mapped_column(Integer)
     popularity: Mapped[int] = mapped_column(Integer)
+    audio: Mapped[dict] = mapped_column(JSON)  # raw audio features, e.g. {"energy": 0.71, "tempo": 118.0}
 
 
 class Event(Base):

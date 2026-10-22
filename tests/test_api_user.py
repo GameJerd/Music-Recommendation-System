@@ -45,6 +45,26 @@ def test_validation(client):
     assert client.get("/recommend/user/x", params={"seed": "nope"}).status_code == 404
 
 
+def test_history_newest_first_with_track_and_audio(client):
+    event(client, "bo", "t1")
+    event(client, "bo", "t5", "like")
+    h = client.get("/users/bo/history").json()
+    assert [(x["event_type"], x["track"]["track_id"]) for x in h] == [("like", "t5"), ("play", "t1")]
+    assert h[0]["track"]["audio"]["danceability"] == 0.6
+    assert client.get("/users/nobody/history").json() == []
+
+
+def test_recommendations_carry_audio_for_covers(client):
+    item = rec(client, "nobody", seed=["t3"], k=1)["items"][0]
+    assert set(item["audio"]) >= {"energy", "valence", "tempo", "acousticness"}
+
+
+def test_web_app_is_served_at_root(client):
+    r = client.get("/")
+    assert r.status_code == 200 and "<title>Undertone</title>" in r.text
+    assert client.get("/app.js").status_code == 200 and client.get("/docs").status_code == 200
+
+
 def test_admin_reload(client):
     r = client.post("/admin/reload")
     assert r.status_code == 200 and r.json()["model_version"] == "content-test"

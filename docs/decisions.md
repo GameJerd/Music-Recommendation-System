@@ -14,6 +14,16 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **The era block is very strong.** With decade in the features, 97–100% of results come from the seed's decade (11% for random tracks). The one-hot decade cosine is all-or-nothing. If cross-era results matter, lower the weight or use a smoother year feature.
 - **Known gaps.** Title variants ("Lose Yourself" vs "Lose Yourself - Soundtrack Version") still appear as separate songs. A user's profile is a single mean, so mixed tastes blur. Search is substring-only.
 
+## Web app (Undertone)
+
+- **Plain HTML/CSS/JS served by FastAPI at `/`.** There's no framework, build step or new dependency, and it runs from the same `uvicorn` command. Static files are mounted after the API routes, so `/docs` and every endpoint still win.
+- **Its own brand, a music-app layout.** The brief asked for a Spotify or Apple Music feel. We borrowed the *kind* of interface (dark shell, sidebar, cover shelves, a big tinted song header, a pill play action) but not their branding: our own name, and a pink accent (#FF4F81) instead of Spotify green.
+- **Generated covers are the signature element.** The dataset has no artwork, so each cover is drawn from the song's audio features, which shows what the engine does: similar songs get similar covers. The hue range deliberately skips green, because the first version ran blue→green→amber and happy songs came out lime.
+- **"Listen on Spotify" instead of a play button.** There's no audio, and the PRD lists streaming as a non-goal. Spotify track IDs are the dataset's IDs, so the button opens the real song and logs a `play` event, which is what makes the recommendations personal. Likes can't be undone, because the API has no delete. That's acceptable for a demo.
+- **Long titles split at " - "** ("Bohemian Rhapsody" plus a "Remastered 2011" line), the way music apps show versions, rather than being cut off.
+- **Track responses now include `audio`** (raw features) for the covers and the "How it sounds" panel. They're stored as JSON on the `tracks` table, so the track DB must be rebuilt once with `build_features.py`. We added `GET /users/{id}/history` for "Recently played".
+- **Checked in a browser** at 1280×800 and 375×812: no horizontal scroll at phone width, no console errors, and like, play and skip events update the mix and the sidebar.
+
 ## Phase 0
 
 - **Python 3.13 venv.** It is the default interpreter on the dev machine, and `implicit 0.7.3` ships a prebuilt `cp313-win_amd64` wheel, so no C++ compiler is needed and there is no fallback for `implicit`.

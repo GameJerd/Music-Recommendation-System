@@ -6,6 +6,7 @@ import pandas as pd
 from sqlalchemy import Engine, String, cast, create_engine, insert, or_, select
 from sqlalchemy.orm import Session
 
+from recsys.data.schema import AUDIO_COLUMNS
 from recsys.store.models import Base, Event, Track
 
 
@@ -22,8 +23,9 @@ def write_tracks(engine: Engine, tracks: pd.DataFrame) -> None:
     Track.__table__.drop(engine, checkfirst=True)
     Base.metadata.create_all(engine)
     rows = tracks[["track_id", "name", "artists", "genres", "year", "popularity"]].to_dict("records")
-    for r in rows:  # parquet round-trips lists as numpy arrays
-        r["artists"], r["genres"] = list(r["artists"]), list(r["genres"])
+    audio = tracks[AUDIO_COLUMNS].round(4).to_dict("records")
+    for r, a in zip(rows, audio):  # parquet round-trips lists as numpy arrays
+        r["artists"], r["genres"], r["audio"] = list(r["artists"]), list(r["genres"]), a
     with Session(engine) as s, s.begin():
         s.execute(insert(Track), rows)
 
@@ -40,6 +42,14 @@ def user_events(engine: Engine, user_id: str) -> list[tuple[str, str]]:
     with Session(engine) as s:
         rows = s.execute(select(Event.track_id, Event.event_type).where(Event.user_id == user_id).order_by(Event.id))
         return [tuple(r) for r in rows]
+
+
+def user_history(engine: Engine, user_id: str, limit: int) -> list[tuple[Event, Track]]:
+    """A user's live events with their tracks, newest first."""
+    stmt = (select(Event, Track).join(Track, Track.track_id == Event.track_id)
+            .where(Event.user_id == user_id).order_by(Event.id.desc()).limit(limit))
+    with Session(engine) as s:
+        return [tuple(r) for r in s.execute(stmt)]
 
 
 def get_track(engine: Engine, track_id: str) -> Track | None:

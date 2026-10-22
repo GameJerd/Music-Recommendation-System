@@ -4,7 +4,8 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from recsys.api.deps import AppState, get_state, load_state
-from recsys.api.schemas import EventIn, EventOut, Health, RecItem, SimilarResponse, TrackOut, UserRecResponse
+from recsys.api.schemas import (EventIn, EventOut, Health, HistoryItem, RecItem, SimilarResponse, TrackOut,
+                                UserRecResponse)
 from recsys.engines.content import Rec
 from recsys.store import db
 from recsys.store.models import Track
@@ -14,7 +15,7 @@ router = APIRouter()
 
 def track_out(t: Track) -> TrackOut:
     return TrackOut(track_id=t.track_id, track_name=t.name, artists=t.artists, genres=t.genres,
-                    year=t.year, popularity=t.popularity)
+                    year=t.year, popularity=t.popularity, audio=t.audio)
 
 
 def rec_items(state: AppState, recs: list[Rec]) -> list[RecItem]:
@@ -22,7 +23,8 @@ def rec_items(state: AppState, recs: list[Rec]) -> list[RecItem]:
     return [
         RecItem(track_id=r.track_id, track_name=meta[r.track_id].name, artist_name=", ".join(meta[r.track_id].artists),
                 genre=", ".join(meta[r.track_id].genres[:3]), year=meta[r.track_id].year,
-                popularity=meta[r.track_id].popularity, score=r.score, similarity=r.similarity)
+                popularity=meta[r.track_id].popularity, audio=meta[r.track_id].audio, score=r.score,
+                similarity=r.similarity)
         for r in recs
     ]
 
@@ -80,6 +82,13 @@ def recommend_user(
     res = state.content.for_user(history, k, seeds=seed, avoid=skipped, mode=mode, exclude_history=exclude_played)
     return UserRecResponse(user_id=user_id, mode=res.mode, cold_start=res.cold_start,
                            n_history=len(set(history)), items=rec_items(state, res.items))
+
+
+@router.get("/users/{user_id}/history", response_model=list[HistoryItem])
+def history(user_id: str, limit: int = Query(50, ge=1, le=500), state: AppState = Depends(get_state)):
+    """The user's logged events (plays, likes, skips), newest first."""
+    return [HistoryItem(event_type=e.event_type, ts=e.ts.replace(tzinfo=timezone.utc), track=track_out(t))
+            for e, t in db.user_history(state.db, user_id, limit)]
 
 
 @router.post("/events", response_model=EventOut, status_code=201)

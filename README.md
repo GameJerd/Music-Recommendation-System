@@ -25,10 +25,22 @@ Download the Kaggle dataset [vatsalmavani/spotify-dataset](https://www.kaggle.co
 | Audit the dataset (Gate 1: unique ids, expected columns) | `python scripts/audit_dataset.py` | ~5 s |
 | Build content features and the track database | `python scripts/build_features.py` | ~10 s |
 | Evaluate: proxies and ablations, written to `reports/content_eval.md` | `python scripts/evaluate.py` | ~1 min |
-| Run the API (then open http://127.0.0.1:8000/docs) | `uvicorn recsys.api.main:app --port 8000` | |
+| Run the app: web app at http://127.0.0.1:8000/, API docs at `/docs` | `uvicorn recsys.api.main:app --port 8000` | |
 | Tests | `pytest -q` | ~2 s |
 
 Settings are in [config/default.yaml](config/default.yaml): block weights, artist cap, popularity boost and paths. After rebuilding features, `POST /admin/reload` picks them up without restarting the API.
+
+## Web app
+
+Open http://127.0.0.1:8000/ after starting the server. **Undertone** is a small music-app interface over the API (plain HTML/CSS/JS in `src/recsys/api/static/`, no build step):
+
+- **Home:** popular songs and a search box for a new listener. Once you play or like something, it shows *Your mix* and *More like* your last song.
+- **Search:** songs or artists as you type.
+- **Song page:** *Listen on Spotify* (opens the track on Spotify and counts it as played), like, *Not for me* (hides it from your mix), the similar songs with their match percentage, and how the song sounds.
+- **Covers are generated from each song's audio features**, because the dataset has no artwork. Mood sets the colour (sad blue to happy amber), energy the size of the disc, tempo the grooves, danceability the stripes and acousticness the grain. Songs that sound alike look alike.
+- **"Listening as"** in the sidebar is the user ID your events are logged under. Change it to start a fresh listener.
+
+There's no audio playback; streaming was out of scope in the original PRD.
 
 ## API
 
@@ -39,6 +51,7 @@ Open `/docs` for the live, typed contract. Main calls:
 - `GET /recommend/similar/{track_id}?k=10`: songs similar to a seed song.
 - `POST /events` `{"user_id": "...", "track_id": "...", "event_type": "play|like|skip"}`: logs what a user did. Played and liked songs shape their profile, and skipped songs are never recommended to them.
 - `GET /recommend/user/{user_id}?k=10`: personal list from the user's logged songs. A new user can add `&seed=<track_id>` (repeatable) to start from songs they pick. With no history and no seeds, they get the most popular songs (`cold_start: true`).
+- `GET /users/{user_id}/history`: that user's logged plays, likes and skips, newest first.
 - `GET /health`, `POST /admin/reload`.
 
 ## How it works
