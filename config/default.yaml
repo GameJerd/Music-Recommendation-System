@@ -1,0 +1,15 @@
+scale:
+  tier: S
+
+paths:
+  raw: data/raw
+  synthetic: data/synthetic
+  artifacts: artifacts
+  db: artifacts/recsys.db
+
+blend:
+  w_max: 0.75
+  k: 7.5          # must equal 5 * (w_max / 0.3 - 1) to keep the 70/30 anchor at 5 plays
+  candidates: 200
+
+seed: 42
