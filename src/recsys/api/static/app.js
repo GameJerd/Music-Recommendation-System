@@ -1,4 +1,4 @@
-// Vibify: a small single-page client for the recommender API (no build step).
+// Slopify: a small single-page client for the recommender API (no build step).
 "use strict";
 
 const root = document.documentElement;
@@ -17,13 +17,13 @@ const store = {
 };
 
 /* ---------- user ---------- */
-let user = store.get("vibify.user") || "guest-" + Math.random().toString(36).slice(2, 6);
-store.set("vibify.user", user);
+let user = store.get("slopify.user") || "guest-" + Math.random().toString(36).slice(2, 6);
+store.set("slopify.user", user);
 userInput.value = user;
 userInput.addEventListener("change", () => {
   user = userInput.value.trim() || user;
   userInput.value = user;
-  store.set("vibify.user", user);
+  store.set("slopify.user", user);
   refreshRecent();
   render();
 });
@@ -152,7 +152,7 @@ async function homeView(isCurrent) {
       <div class="page">
         <section class="welcome">
           <h1>Find music by how it sounds.</h1>
-          <p>Search for a song you love. Vibify suggests others with a similar energy, mood, tempo and era,
+          <p>Search for a song you love. Slopify suggests others with a similar energy, mood, tempo and era,
              from 170,000 tracks released between 1921 and 2020.</p>
           ${searchForm()}
         </section>
@@ -326,7 +326,7 @@ let renderSeq = 0;
 function showError(err) {
   view.innerHTML = err.status === 404
     ? `<div class="error"><b>That song isn't in the catalog.</b><a href="#/search">Search for another one</a></div>`
-    : `<div class="error"><b>Vibify can't reach the recommender.</b>${esc(err.message)}. Check that the server is running, then reload the page.</div>`;
+    : `<div class="error"><b>Slopify can't reach the recommender.</b>${esc(err.message)}. Check that the server is running, then reload the page.</div>`;
 }
 
 async function render() {
