@@ -14,7 +14,7 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **The era block is very strong.** With decade in the features, 97–100% of results come from the seed's decade (11% for random tracks). The one-hot decade cosine is all-or-nothing. If cross-era results matter, lower the weight or use a smoother year feature.
 - **Known gaps.** Title variants ("Lose Yourself" vs "Lose Yourself - Soundtrack Version") still appear as separate songs. A user's profile is a single mean, so mixed tastes blur. Search is substring-only.
 
-## Web app (Undertone)
+## Web app (Vibify)
 
 - **Plain HTML/CSS/JS served by FastAPI at `/`.** There's no framework, build step or new dependency, and it runs from the same `uvicorn` command. Static files are mounted after the API routes, so `/docs` and every endpoint still win.
 - **Its own brand, a music-app layout.** The brief asked for a Spotify or Apple Music feel. We borrowed the *kind* of interface (dark shell, sidebar, cover shelves, a big tinted song header, a pill play action) but not their branding: our own name, and a pink accent (#FF4F81) instead of Spotify green.

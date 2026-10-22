@@ -1,4 +1,4 @@
-// Undertone: a small single-page client for the recommender API (no build step).
+// Vibify: a small single-page client for the recommender API (no build step).
 "use strict";
 
 const view = document.getElementById("view");
@@ -12,7 +12,7 @@ const clamp01 = (x) => Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0.5));
 const icon = (id) => `<svg aria-hidden="true"><use href="#${id}"/></svg>`;
 
 /* ---------- user ---------- */
-const USER_KEY = "undertone.user";
+const USER_KEY = "vibify.user";
 function loadUser() {
   try {
     const saved = localStorage.getItem(USER_KEY);
@@ -142,7 +142,7 @@ async function homeView(isCurrent) {
       <div class="view-pad">
         <section class="welcome">
           <h1>Find music by how it sounds.</h1>
-          <p>Search for a song you love. Undertone suggests others with a similar energy, mood, tempo and era,
+          <p>Search for a song you love. Vibify suggests others with a similar energy, mood, tempo and era,
              from 170,000 tracks released between 1921 and 2020.</p>
           ${searchForm()}
         </section>

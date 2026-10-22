@@ -61,7 +61,7 @@ def test_recommendations_carry_audio_for_covers(client):
 
 def test_web_app_is_served_at_root(client):
     r = client.get("/")
-    assert r.status_code == 200 and "<title>Undertone</title>" in r.text
+    assert r.status_code == 200 and "<title>Vibify</title>" in r.text
     assert client.get("/app.js").status_code == 200 and client.get("/docs").status_code == 200
 
 

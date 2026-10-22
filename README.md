@@ -32,7 +32,7 @@ Settings are in [config/default.yaml](config/default.yaml): block weights, artis
 
 ## Web app
 
-Open http://127.0.0.1:8000/ after starting the server. **Undertone** is a small music-app interface over the API (plain HTML/CSS/JS in `src/recsys/api/static/`, no build step):
+Open http://127.0.0.1:8000/ after starting the server. **Vibify** is a small music-app interface over the API (plain HTML/CSS/JS in `src/recsys/api/static/`, no build step):
 
 - **Home:** popular songs and a search box for a new listener. Once you play or like something, it shows *Your mix* and *More like* your last song.
 - **Search:** songs or artists as you type.
