@@ -42,6 +42,18 @@ Non-obvious choices and their reasons. The PRD's nine key decisions are in `docs
 - **ALS defaults** (not yet tuned): 64 factors, regularisation 0.05, 15 iterations, α = 10. BLAS is limited to 1 thread while fitting, as `implicit` recommends.
 - **Item-KNN scores below popularity** (NDCG@10 0.0023 vs 0.0044 on validation). Most items have only a few plays, so cosine neighbours of rare items are noise, and its recommendations scatter over 19.6k distinct items. It stays as the PRD's baseline. Phase 4 can try K, BM25 weighting or a minimum support.
 
+## Phase 3
+
+- **The API serves user histories from `artifacts/cf/history.parquet`** (per user and track: plays, likes), written by `train_cf.py` next to the model. Live events from SQLite are merged in on each request, so n, the played-track exclusion and the content profile include them right away.
+- **Fold-in for live users.** A user with live events (or a new user) gets an ALS vector from one closed-form ALS user step against the fixed item factors, with no retraining. On the full data it reproduces implicit's trained user vectors at cosine ≥ 0.999 (20 sampled users), which also confirms implicit uses λ unscaled. A unit test covers it.
+- **Content profile = unweighted mean of the vectors of the user's distinct played or liked tracks.** It's simple. Weighting by r_ui is a possible Phase 4 ablation.
+- **The response's `mode` is the mode actually served.** A cold-start user asking for `hybrid` gets `content` (with picked `seed` tracks) or `popular`, and `cold_start: true`. That reads more honestly than echoing the requested mode.
+- **Cold-start seeding is by track ids only** (`?seed=<id>&seed=<id>`, found with `/tracks/search`). Seeding by genre (PRD) isn't built. It would need a genre → content-vector mapping, and track seeds cover the onboarding flow.
+- **`/recommend/similar` blends item-item CF** (cosine of ALS item factors) at a fixed `similar_cf_weight` 0.3 when the seed has a CF vector, and is content-only otherwise. The PRD gives no weight for this endpoint, so 0.3 mirrors the user-side anchor.
+- **Event `weight` is always 1 per row.** The PRD's example row `play,3` reads as an aggregated count. We log raw events and aggregate when training.
+- **`train_cf.py --include-live`** adds SQLite live events to the *serving* model and history only. Reported metrics stay simulated-only, as the PRD says.
+- **Open issue, proposed change pending (see the Phase 3 report):** the PRD's rule that a track with no CF vector gets its content score only makes those tracks win the blend. About 88k of 170k tracks were never played in the simulation, and 97% of hybrid top-10 slots go to them (validation NDCG@10 0.0022, vs 0.0380 for CF-only). Imputing a neutral CF score fixes it: 0 gives 0.0386 with 2% unplayed tracks in the top 10, and the pool mean gives 0.0373 with 16%.
+
 ## PRD amendments (approved with the plan, 2026-10-22)
 
 1. **Split for light users.** Per user, ordered by time: test = last `max(1, round(0.1n))` if n ≥ 2, validation = the `max(1, round(0.1n))` before it if n ≥ 3, the rest is train. A plain 10% would give the 1–4 play bucket no test items. Evaluation buckets use the train count.

@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -44,4 +45,13 @@ def test_als_save_load_roundtrip(tmp_path):
 
 def test_popularity_excludes():
     inter = pd.DataFrame({"user_id": list("abcab"), "track_id": list("xxxyz"), "event_type": "play", "weight": 1})
-    assert [t for t, _ in PopularityEngine(inter).recommend(2, exclude={"x"})] == ["y", "z"]
+    assert [t for t, _ in PopularityEngine.from_interactions(inter).recommend(2, exclude={"x"})] == ["y", "z"]
+
+
+def test_fold_in_reproduces_trained_user_vector():
+    inter = _planted()
+    als = ALSModel.fit(inter, PARAMS, seed=0)
+    r = inter[inter["user_id"] == "g0u3"].groupby("track_id").size().astype(float).to_dict()
+    a, b = als.fold_in(r), als.user_vector("g0u3")
+    assert a @ b / (np.linalg.norm(a) * np.linalg.norm(b)) > 0.99
+    assert als.fold_in({"not-in-model": 1.0}) is None

@@ -2,13 +2,16 @@ import pandas as pd
 
 
 class PopularityEngine:
-    """Rank tracks by play count in the training interactions."""
+    """Rank tracks by play count."""
 
-    def __init__(self, interactions: pd.DataFrame):
-        plays = interactions[interactions["event_type"] == "play"]
-        counts = plays["track_id"].value_counts()
+    def __init__(self, play_counts: pd.Series):
+        counts = play_counts[play_counts > 0].sort_values(ascending=False, kind="stable")
         self.ranked = counts.index.tolist()
         self.score_of = (counts / counts.iloc[0]).to_dict() if len(counts) else {}
+
+    @classmethod
+    def from_interactions(cls, interactions: pd.DataFrame) -> "PopularityEngine":
+        return cls(interactions.loc[interactions["event_type"] == "play", "track_id"].value_counts())
 
     def recommend(self, k: int, exclude=frozenset()) -> list[tuple[str, float]]:
         out = []

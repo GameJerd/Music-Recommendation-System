@@ -5,6 +5,7 @@ Confidence follows the PRD, c_ui = 1 + alpha * r_ui, where r_ui = play_weight * 
 1 + alpha * r and pass alpha=1 to implicit. See docs/decisions.md.
 """
 import json
+from functools import cached_property
 from pathlib import Path
 
 import numpy as np
@@ -61,14 +62,66 @@ class ALSModel:
             model.fit(C, show_progress=False)
         return cls(users, items, model.user_factors, model.item_factors, params)
 
-    def recommend(self, user_id: str, k: int, exclude_ids=()) -> list[tuple[str, float]]:
-        """Top-k tracks for a known user, excluding the given tracks. [] for an unknown user."""
-        if user_id not in self.user_row:
-            return []
-        scores = self.item_factors @ self.user_factors[self.user_row[user_id]]
+    def user_vector(self, user_id: str) -> np.ndarray | None:
+        r = self.user_row.get(user_id)
+        return None if r is None else self.user_factors[r]
+
+    def fold_in(self, r: dict[str, float]) -> np.ndarray | None:
+        """User vector for a history {track_id: r_ui} without retraining: one ALS user step against
+        the fixed item factors, x = (YᵀY + λI + Yᵀ(C−I)Y)⁻¹ YᵀC p. None if no history item has a CF vector."""
+        known = [(self.item_row[t], v) for t, v in r.items() if t in self.item_row and v > 0]
+        if not known:
+            return None
+        rows, vals = zip(*known)
+        Y = self.item_factors[list(rows)].astype(np.float64)
+        c = 1 + self.params["alpha"] * np.array(vals)
+        A = self.YtY + self.params["regularization"] * np.eye(Y.shape[1]) + (Y.T * (c - 1)) @ Y
+        return np.linalg.solve(A, Y.T @ c).astype(np.float32)
+
+    @cached_property
+    def YtY(self) -> np.ndarray:
+        F = self.item_factors.astype(np.float64)
+        return F.T @ F
+
+    def recommend_vector(self, vec: np.ndarray, k: int, exclude_ids=()) -> list[tuple[str, float]]:
+        scores = self.item_factors @ vec
         excl = np.array([self.item_row[t] for t in exclude_ids if t in self.item_row], dtype=np.int64)
         top = top_k(scores, k, excl)
         return list(zip(self.item_ids[top].tolist(), scores[top].tolist()))
+
+    def recommend(self, user_id: str, k: int, exclude_ids=()) -> list[tuple[str, float]]:
+        """Top-k tracks for a known user, excluding the given tracks. [] for an unknown user."""
+        vec = self.user_vector(user_id)
+        return [] if vec is None else self.recommend_vector(vec, k, exclude_ids)
+
+    def score(self, vec: np.ndarray, track_ids) -> np.ndarray:
+        """vec · item factor per track; NaN for tracks without a CF vector (cold items)."""
+        rows = np.array([self.item_row.get(t, -1) for t in track_ids], dtype=np.int64)
+        out = np.full(len(rows), np.nan, dtype=np.float32)
+        ok = rows >= 0
+        out[ok] = self.item_factors[rows[ok]] @ vec
+        return out
+
+    @cached_property
+    def unit_items(self) -> np.ndarray:
+        return self.item_factors / np.maximum(np.linalg.norm(self.item_factors, axis=1, keepdims=True), 1e-12)
+
+    def similar_items(self, track_id: str, k: int) -> list[tuple[str, float]]:
+        """Item-item cosine on ALS item factors, excluding the seed. [] if the track has no CF vector."""
+        if track_id not in self.item_row:
+            return []
+        scores = self.unit_items @ self.unit_items[self.item_row[track_id]]
+        top = top_k(scores, k, np.array([self.item_row[track_id]]))
+        return list(zip(self.item_ids[top].tolist(), scores[top].tolist()))
+
+    def item_cosine(self, track_id: str, track_ids) -> np.ndarray:
+        """Cosine of track_id's item factor to each of track_ids; NaN where either has no CF vector."""
+        rows = np.array([self.item_row.get(t, -1) for t in track_ids], dtype=np.int64)
+        out = np.full(len(rows), np.nan, dtype=np.float32)
+        if track_id in self.item_row:
+            ok = rows >= 0
+            out[ok] = self.unit_items[rows[ok]] @ self.unit_items[self.item_row[track_id]]
+        return out
 
     def save(self, out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
